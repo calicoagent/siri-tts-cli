@@ -957,9 +957,14 @@ public final class SiriEngine: @unchecked Sendable {
     }
 
     private func subscribe(_ voice: SynthesisVoice, timeout: TimeInterval) throws {
+        let voices = SubscriptionMerge.merged(
+            adding: voice,
+            to: try ownSubscribedVoices(timeout: timeout),
+            assetKey: { $0.assetKey }
+        )
         let semaphore = DispatchSemaphore(value: 0)
         let state = LockedResult<Void>()
-        session.subscribe(voices: [voice]) { error in
+        session.subscribe(voices: voices) { error in
             if let error {
                 state.set(.failure(error))
             } else {
@@ -982,6 +987,25 @@ public final class SiriEngine: @unchecked Sendable {
                 code: .daemonUnreachable
             )
         }
+    }
+
+    /// The voices this executable has already subscribed. Rows owned by other
+    /// clients (Siri, Telephony) are excluded: they are not ours to resend.
+    private func ownSubscribedVoices(timeout: TimeInterval) throws -> [SynthesisVoice] {
+        guard let clientID = Bundle.main.bundleIdentifier else { return [] }
+        let semaphore = DispatchSemaphore(value: 0)
+        let state = LockedResult<[SynthesisVoice]>()
+        session.subscribedVoices(clientId: nil) { subscriptions in
+            state.set(.success(subscriptions.filter { $0.clientId == clientID }.map(\.voice)))
+            semaphore.signal()
+        }
+        guard semaphore.wait(timeout: .now() + timeout) == .success else {
+            throw CLIError(
+                "Timed out while reading existing voice subscriptions; refusing to replace them",
+                code: .daemonUnreachable
+            )
+        }
+        return try state.get().get()
     }
 
     private func throwIfCancelled(

@@ -261,6 +261,13 @@ enum SiriDownloadableVoiceCatalog {
         }
     }
 
+    /// On-disk specifiers keep Apple's casing (`th_TH.th-TH-A`, `de_DE.martin`),
+    /// while catalog names are lowercased to build the specifier. Local state is
+    /// keyed case-insensitively so mixed-case voice names still match their bundle.
+    static func localStateKey(_ specifier: String) -> String {
+        specifier.lowercased(with: Locale(identifier: "en_US_POSIX"))
+    }
+
     static func uafAssetSpecifier(for metadata: SiriCatalogAssetMetadata) -> String {
         let language = metadata.language.replacingOccurrences(of: "-", with: "_")
         let name = metadata.name.lowercased(with: Locale(identifier: "en_US_POSIX"))
@@ -399,7 +406,7 @@ enum SiriDownloadableVoiceCatalog {
         states: [String: SiriUAFLocalAssetState]?
     ) -> SiriCatalogAssetMetadata {
         guard let states else { return metadata }
-        let state = states[uafAssetSpecifier(for: metadata)]
+        let state = states[localStateKey(uafAssetSpecifier(for: metadata))]
         return SiriCatalogAssetMetadata(
             identifier: metadata.identifier,
             name: metadata.name,
@@ -446,10 +453,11 @@ enum SiriDownloadableVoiceCatalog {
                 contentVersion: contentVersion,
                 assetDataPath: assetData.path
             )
-            if let existing = states[specifier], existing.contentVersion > contentVersion {
+            let key = localStateKey(specifier)
+            if let existing = states[key], existing.contentVersion > contentVersion {
                 continue
             }
-            states[specifier] = state
+            states[key] = state
         }
         return states
     }

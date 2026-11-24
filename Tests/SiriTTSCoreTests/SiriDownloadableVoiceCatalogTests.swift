@@ -165,7 +165,7 @@ final class SiriDownloadableVoiceCatalogTests: XCTestCase {
         )
         let present = SiriDownloadableVoiceCatalog.applyingLocalState(
             to: metadata(version: 0, locallyAvailable: false),
-            states: [specifier: SiriUAFLocalAssetState(
+            states: [SiriDownloadableVoiceCatalog.localStateKey(specifier): SiriUAFLocalAssetState(
                 contentVersion: 5_030,
                 assetDataPath: "/System/Library/AssetsV2/example.asset/AssetData"
             )]
@@ -175,6 +175,28 @@ final class SiriDownloadableVoiceCatalogTests: XCTestCase {
         XCTAssertEqual(absent.version, 0)
         XCTAssertTrue(present.locallyAvailable)
         XCTAssertEqual(present.version, 5_030)
+    }
+
+    func testMixedCaseOnDiskSpecifierMatchesCatalogName() {
+        // macOS 27.2 ships Thai as `com.apple.siri.tts.voice.th_TH.th-TH-A.neural.premium`;
+        // the catalog-built specifier lowercases the name to `th-th-a`.
+        let thai = SiriCatalogAssetMetadata(
+            identifier: "com.apple.speech.synthesis.voice.custom.siri.th-th-a.premium",
+            name: "th-TH-A", language: "th-TH", technology: "neural", gender: 1,
+            quality: "premium", version: 0, relativeDesirability: 0,
+            locallyAvailable: false, downloadSize: 70_000_000
+        )
+        let onDisk = "com.apple.siri.tts.voice.th_TH.th-TH-A.neural.premium"
+        let applied = SiriDownloadableVoiceCatalog.applyingLocalState(
+            to: thai,
+            states: [SiriDownloadableVoiceCatalog.localStateKey(onDisk): SiriUAFLocalAssetState(
+                contentVersion: 1_089,
+                assetDataPath: "/System/Library/AssetsV2/example.asset/AssetData"
+            )]
+        )
+        XCTAssertTrue(applied.locallyAvailable)
+        XCTAssertEqual(applied.version, 1_089)
+        XCTAssertEqual(applied.nativeAssetKey, "th-TH:neural:male:th-TH-A:premium:1089")
     }
 
     func testInstalledFilterRejectsMatchedStaleDaemonRowsButKeepsCompatibleUnknownRows() throws {

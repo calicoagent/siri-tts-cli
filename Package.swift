@@ -62,6 +62,10 @@ let package = Package(
                     "-F", privateFrameworks,
                     "-Xlinker", "-weak_framework",
                     "-Xlinker", "SiriTTSService",
+                    // macOS 27 symbols (AcousticValues, playbackRate) are absent
+                    // from the Xcode 26 SDK's SiriTTSService.tbd. They resolve at
+                    // runtime; every use is behind #available or symbolExists.
+                    "-Xlinker", "-undefined", "-Xlinker", "dynamic_lookup",
                 ]),
                 .linkedFramework("AVFoundation"),
                 .linkedFramework("AudioToolbox"),
