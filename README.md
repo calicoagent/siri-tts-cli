@@ -30,6 +30,12 @@ $ siri-tts -v Aaron -o hello.wav "The good voice, from the terminal."
 
 Version 2 is currently verified on macOS 27.0.1 (26A434); older releases have not been re-tested with this version.
 
+### Known limits on macOS 27.2 (26B5101f)
+
+- **Xcode 26 SDK:** its `SiriTTSService.tbd` lacks the macOS 27 symbols (`AcousticValues`, `playbackRate`). The package links them with `-undefined dynamic_lookup`; every use is guarded by `#available(macOS 27, *)` or a runtime symbol check, so the same binary still runs on macOS 15.6+.
+- **Mixed-case voice names (Thai `th-TH-A`, `th-TH-B`):** their UAF bundles keep Apple's casing (`com.apple.siri.tts.voice.th_TH.th-TH-A.neural.premium`) while the catalog lowercases the name. Local install state is now matched case-insensitively; before, these voices downloaded but were filtered out of `voices` and synthesis.
+- **Subscriptions:** `voices --install` resends the voices this tool already subscribed together with the new one. The daemon's `subscribe(voices:)` replaces the caller's whole set, and the original single-voice request made earlier installs unusable.
+
 ## macOS 27 update
 
 Version 2 adds the new expressive Siri voices on macOS 27, with controls for speaking pace and expressivity. The older voices are still available, including their word timings.
